@@ -250,8 +250,8 @@ static id MagicalRecordUbiquitySetupNotificationObserver;
     NSSet *updatedObjects = [[notification userInfo] objectForKey:NSUpdatedObjectsKey];
 
     NSSet *nonSkippableObjects = [updatedObjects filteredSetUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(id _Nullable evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
-        if ([evaluatedObject respondsToSelector:@selector(MR_maySkipMerging)]) {
-            return ![evaluatedObject MR_maySkipMerging];
+        if ([evaluatedObject respondsToSelector:@selector(MR_shouldSkipMerging)]) {
+            return ![evaluatedObject MR_shouldSkipMerging];
         }
         return YES;
     }]];

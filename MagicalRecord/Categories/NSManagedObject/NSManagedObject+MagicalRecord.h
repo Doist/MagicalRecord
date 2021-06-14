@@ -68,7 +68,7 @@
 
 @protocol MagicalRecord_MergeSkippable <NSObject>
 
-- (BOOL) MR_maySkipMerging;
+- (BOOL) MR_shouldSkipMerging;
 
 @end
 
