@@ -12,6 +12,7 @@
 #import "MagicalRecord+ErrorHandling.h"
 #import "MagicalRecord+iCloud.h"
 #import "MagicalRecordLogging.h"
+#import "NSManagedObject+MagicalRecord.h"
 
 static NSString * const MagicalRecordContextWorkingName = @"MagicalRecordContextWorkingName";
 
@@ -212,9 +213,15 @@ static id MagicalRecordUbiquitySetupNotificationObserver;
     }
 }
 
-+ (void)rootContextDidSave:(NSNotification *)notification
++ (void) rootContextDidSave:(NSNotification *)notification
 {
     if ([notification object] != [self MR_rootSavingContext])
+    {
+        return;
+    }
+
+    NSNotification *filteredNotification = [self notificationWithFilteredObjects:notification];
+    if ([self isContextDidSaveNotificationEmpty:filteredNotification])
     {
         return;
     }
@@ -222,21 +229,48 @@ static id MagicalRecordUbiquitySetupNotificationObserver;
     if ([NSThread isMainThread] == NO)
     {
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self rootContextDidSave:notification];
+            [self rootContextDidSave:filteredNotification];
         });
 
         return;
     }
 
-    for (NSManagedObject *object in [[notification userInfo] objectForKey:NSUpdatedObjectsKey])
+    for (NSManagedObject *object in [[filteredNotification userInfo] objectForKey:NSUpdatedObjectsKey])
     {
         [[[self MR_defaultContext] objectWithID:[object objectID]] willAccessValueForKey:nil];
     }
 
-    [[self MR_defaultContext] mergeChangesFromContextDidSaveNotification:notification];
+    [[self MR_defaultContext] mergeChangesFromContextDidSaveNotification:filteredNotification];
 }
 
 #pragma mark - Private Methods
+
++ (NSNotification *) notificationWithFilteredObjects:(NSNotification *)notification
+{
+    NSSet *updatedObjects = [[notification userInfo] objectForKey:NSUpdatedObjectsKey];
+
+    NSSet *nonSkippableObjects = [updatedObjects filteredSetUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(id _Nullable evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
+        if ([evaluatedObject respondsToSelector:@selector(MR_shouldSkipMerging)]) {
+            return ![evaluatedObject MR_shouldSkipMerging];
+        }
+        return YES;
+    }]];
+
+    NSMutableDictionary *newUserInfo = [notification.userInfo mutableCopy];
+    newUserInfo[NSUpdatedObjectsKey] = nonSkippableObjects;
+
+    NSNotification *newNotification = [[NSNotification alloc] initWithName:notification.name object:notification.object userInfo:[newUserInfo copy]];
+
+    return newNotification;
+}
+
++ (BOOL) isContextDidSaveNotificationEmpty:(NSNotification *)notification
+{
+    return
+        [notification.userInfo[NSInsertedObjectsKey] count] == 0 &&
+        [notification.userInfo[NSUpdatedObjectsKey] count] == 0 &&
+        [notification.userInfo[NSDeletedObjectsKey] count] == 0;
+}
 
 + (void) MR_cleanUp
 {

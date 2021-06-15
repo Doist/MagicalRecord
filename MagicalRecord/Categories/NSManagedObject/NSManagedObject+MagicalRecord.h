@@ -66,6 +66,12 @@
 
 @end
 
+@protocol MagicalRecord_MergeSkippable <NSObject>
+
+- (BOOL) MR_shouldSkipMerging;
+
+@end
+
 #pragma mark - Deprecated Methods — DO NOT USE
 @interface NSManagedObject (MagicalRecordDeprecated)
 
